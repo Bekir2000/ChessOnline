@@ -1,14 +1,15 @@
 interface BoardLabelsProps {
   squareSize: number;
   type: 'ranks' | 'files';
+  isBlack?: boolean;
 }
 
-export default function BoardLabels({ squareSize, type }: BoardLabelsProps) {
+export default function BoardLabels({ squareSize, type, isBlack = false }: BoardLabelsProps) {
   const items = Array.from({ length: 8 }).map((_, i) => {
     if (type === 'ranks') {
-      return 8 - i;
+      return isBlack ? i + 1 : 8 - i;
     } else {
-      return String.fromCharCode(97 + i);
+      return String.fromCharCode(isBlack ? 104 - i : 97 + i);
     }
   });
 

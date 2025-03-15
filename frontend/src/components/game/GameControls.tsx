@@ -1,15 +1,19 @@
 'use client';
 
+import CountDown from './CountDown';
+
 interface GameControlsProps {
   onResign?: () => void;
   onDrawOffer?: () => void;
-  timeControl?: string;
+  timeControl?: number;
+  onTimeUp?: () => void;
 }
 
 export default function GameControls({ 
   onResign, 
   onDrawOffer, 
-  timeControl = "10:00" 
+  timeControl = 10 * 60,
+  onTimeUp
 }: GameControlsProps) {
   return (
     <div className="bg-gray-800 p-3 sm:p-4 rounded-lg">
@@ -33,7 +37,7 @@ export default function GameControls({
         </div>
         <div className="text-center sm:text-right">
           <div className="text-xs sm:text-sm text-gray-400">Time Control</div>
-          <div className="text-xl sm:text-2xl font-mono">{timeControl}</div>
+          <CountDown initialTime={timeControl} onTimeUp={onTimeUp} />
         </div>
       </div>
     </div>
