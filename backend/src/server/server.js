@@ -51,18 +51,40 @@ io.on('connection', (socket) => {
   });
 
   // Handle game resignation
-  socket.on('resign', (gameId) => {
+  socket.on('resign', ({gameId}) => {
+    const result = gameManager.handleResignation(gameId, socket.id);
+    if (!result) return;
+    
     const game = gameManager.getGame(gameId);
     if (!game) return;
-    const winner = game.white.socket.id === socket.id ? game.black : game.white;
-    io.to(game.white.socket.id).to(game.black.socket.id).emit('gameOver', { result: `${winner.playerName} resigned!` });
+    
+    io.to(game.white.socket.id).to(game.black.socket.id).emit('gameOver', {
+      winner: result.winner,
+      reason: result.reason
+    });
+    
+    gameManager.removeGame(gameId);
   });
   // Handle draw offer
-  socket.on('offerDraw', (gameId) => {
+  socket.on('offerDraw', ({ gameId }) => {
+    const result = gameManager.handleDrawOffer(gameId, socket.id);
+    if (!result) return;
+
     const game = gameManager.getGame(gameId);
     if (!game) return;
-    const opponent = game.white.socket.id === socket.id? game.black : game.white;
-    opponent.socket.emit('drawOffer', { playerName: socket.playerName });
+
+    if (result.winner) {
+      // Draw was accepted
+      io.to(game.white.socket.id).to(game.black.socket.id).emit('gameOver', {
+        winner: result.winner,
+        reason: result.reason
+      });
+      gameManager.removeGame(gameId);
+    } else {
+      // Draw was offered
+      const opponent = game.white.socket.id === socket.id ? game.black : game.white;
+      opponent.socket.emit('drawOffer', { playerName: socket.playerName });
+    }
   });
 
   // Handle disconnection

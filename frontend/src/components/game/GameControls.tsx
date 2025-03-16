@@ -6,6 +6,7 @@ interface GameControlsProps {
   onResign?: () => void;
   onDrawOffer?: () => void;
   timeControl?: number;
+  isTimerRunning?: boolean;
   onTimeUp?: () => void;
 }
 
@@ -13,7 +14,8 @@ export default function GameControls({
   onResign, 
   onDrawOffer, 
   timeControl = 10 * 60,
-  onTimeUp
+  onTimeUp,
+  isTimerRunning = false,
 }: GameControlsProps) {
   return (
     <div className="bg-gray-800 p-3 sm:p-4 rounded-lg">
@@ -37,7 +39,7 @@ export default function GameControls({
         </div>
         <div className="text-center sm:text-right">
           <div className="text-xs sm:text-sm text-gray-400">Time Control</div>
-          <CountDown initialTime={timeControl} onTimeUp={onTimeUp} />
+          <CountDown initialTime={timeControl} onTimeUp={onTimeUp || (() => {})} isTimerRunning={isTimerRunning}/>
         </div>
       </div>
     </div>

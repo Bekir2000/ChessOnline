@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@types/canvas-confetti": "^1.9.0",
+    "canvas-confetti": "^1.9.3",
     "chess.js": "^1.1.0",
     "clsx": "^2.1.1",
     "next": "15.2.2",

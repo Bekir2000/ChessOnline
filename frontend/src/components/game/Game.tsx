@@ -8,6 +8,7 @@ import GameControls from "@/components/game/GameControls";
 import MoveHistory from "@/components/game/MoveHistory";
 import PlayerInfo from "@/components/game/PlayerInfo";
 import Loading from "@/app/game/loading";
+import GameOverModal from "@/components/game/GameOverModal";
 
 export default function Game() {
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -25,6 +26,12 @@ export default function Game() {
     reason?: string;
   }>({});
   const [isReady, setIsReady] = useState(false);
+  const [isReviewMode, setIsReviewMode] = useState(false);
+  const [gameHistory, setGameHistory] = useState<Chess[]>([new Chess()]);
+  const [selectedMoveIndex, setSelectedMoveIndex] = useState(-1);
+
+  const isWhiteTurn = game.turn() === 'w';
+  const isBlackTurn = game.turn() === 'b';
 
   useEffect(() => {
     const socket = io("http://localhost:3001");
@@ -41,14 +48,21 @@ export default function Game() {
     });
 
   
-    socket.on("moveMade", ({ from, to, fen }) => {
+    socket.on("moveMade", ({ from, to, fen, remainingTime }) => {
       console.log("Move Made:", from, to, fen);
       const newGame = new Chess(fen);
+      const pieceName = newGame.get(to)?.type;
+      //const pieceName = piece ? piece.type.toUpperCase() : '';
       setGame(newGame);
-      setMoves(prev => [...prev, `${from}-${to}`]);
+      setCountdown(remainingTime);
+      console.log(`is white turn: ${isWhiteTurn}`);
+      console.log(`piece name: ${isWhiteTurn ? pieceName?.toUpperCase() : pieceName?.toLowerCase()}`);
+      setMoves(prev => [...prev, `${from}-${to}-${(newGame.get(to)?.color === 'w' ? pieceName?.toUpperCase() : pieceName?.toLowerCase())}`]);
+      setGameHistory(prev => [...prev, newGame]);
     });
 
     socket.on("gameOver", (result) => {
+      console.log("Game Over:", result);
       setGameState(prev => ({ ...prev, winner: result.winner, reason: result.reason }));
     });
 
@@ -58,47 +72,49 @@ export default function Game() {
     };
   }, []);
 
-  // Countdown timer effect
-  useEffect(() => {
-    if (!isReady || gameState.winner) return;
-
-    const isMyTurn = (
-      (gameState.color === "white" && game.turn() === 'w') ||
-      (gameState.color === "black" && game.turn() === 'b')
-    );
-
-    let timer: NodeJS.Timeout;
-    if (isMyTurn && countdown > 0) {
-      timer = setInterval(() => {
-        setCountdown(prev => {
-          if (prev <= 1) {
-            // Time's up
-            if (socket && gameState.gameId) {
-              socket.emit('timeOut', { gameId: gameState.gameId });
-            }
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [isReady, gameState.color, game.turn(), countdown, socket, gameState.gameId, gameState.winner]);
+  const isMyTurn = (
+    (gameState.color === "white" && game.turn() === 'w') ||
+    (gameState.color === "black" && game.turn() === 'b')
+  );
 
   if (!isReady) {
     return <Loading />;
   }
 
-  const isWhiteTurn = game.turn() === 'w';
-  const isBlackTurn = game.turn() === 'b';
+  
 
 
  
+  const handleViewGame = () => {
+    setIsReviewMode(true);
+    setSelectedMoveIndex(gameHistory.length - 1);
+  };
+
+  const handleMoveClick = (index: number) => {
+    setSelectedMoveIndex(index);
+    setGame(new Chess(gameHistory[index].fen()));
+  };
+
+  const handlePlayAgain = () => {
+    if (socket) {
+      setGame(new Chess());
+      setMoves([]);
+      setGameState({});
+      setIsReady(false);
+      socket.emit('joinQueue', 'Player ' + Math.floor(Math.random() * 1000));
+    }
+  };
+
   return (
-    <div className="flex flex-col lg:flex-row gap-8">
+    <div className="flex flex-col lg:flex-row gap-8 relative">
+      {gameState.winner && !isReviewMode &&(
+        <GameOverModal 
+          winner={gameState.winner} 
+          reason={gameState.reason} 
+          onPlayAgain={handlePlayAgain}
+          onViewGame={handleViewGame}
+        />
+      )}
       {/* Chessboard container - controls the size */}
       <div className="w-full lg:w-[800px] aspect-square">
         {socket && <Chessboard game={game} socket={socket} gameState={gameState} />}
@@ -112,33 +128,35 @@ export default function Game() {
         </div>
         <GameControls
           onResign={() => {
+            // handle resignation
+            console.log("Resigning");
             if (socket && gameState.gameId) {
               socket.emit('resign', { gameId: gameState.gameId });
             }
           }}
           onDrawOffer={() => {
+            // handle draw offer
             if (socket && gameState.gameId) {
               socket.emit('offerDraw', { gameId: gameState.gameId });
             }
             
           }}
           timeControl={countdown}
+          isTimerRunning={isMyTurn && !gameState.winner}
+          onTimeUp={() => {
+            // handle timeout
+            if (socket && gameState.gameId) {
+              socket.emit('timeOut', { gameId: gameState.gameId });
+            }
+          }}
         />
-        {gameState.winner && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-              <h2 className="text-2xl font-bold mb-4">{gameState.winner} wins!</h2>
-              <p className="text-gray-300 mb-6">Game ended by {gameState.reason}</p>
-              <button
-                onClick={() => window.location.reload()}
-                className="w-full px-4 py-2 bg-blue-600 rounded-md hover:bg-blue-700 transition"
-              >
-                Play Again
-              </button>
-            </div>
-          </div>
-        )}
-        <MoveHistory moves={moves} />
+        
+        <MoveHistory 
+          moves={moves} 
+          onMoveClick={handleMoveClick}
+          selectedMoveIndex={selectedMoveIndex}
+          isReviewMode={isReviewMode}
+        />
       </div>
     </div>
   );

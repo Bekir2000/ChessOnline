@@ -1,25 +1,39 @@
-import React, { useState, useEffect } from 'react';
+'use client';
+
+import { useState, useEffect } from 'react';
 
 interface CountDownProps {
-  initialTime: number; // Time in seconds
-  onTimeUp?: () => void;
+  initialTime: number;
+  isTimerRunning: boolean;
+  onTimeUp: () => void;
 }
 
-const CountDown = ({ initialTime, onTimeUp }: CountDownProps) => {
+export default function CountDown({ initialTime, isTimerRunning, onTimeUp }: CountDownProps) {
   const [timeLeft, setTimeLeft] = useState(initialTime);
 
   useEffect(() => {
-    if (timeLeft <= 0) {
-      onTimeUp?.();
-      return;
+    setTimeLeft(initialTime);
+  }, [initialTime]);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+
+    if (isTimerRunning && timeLeft > 0) {
+      timer = setInterval(() => {
+        setTimeLeft((prev) => {
+          if (prev <= 1) {
+            onTimeUp();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
     }
 
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [timeLeft, onTimeUp]);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isTimerRunning, timeLeft, onTimeUp]);
 
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
@@ -33,4 +47,4 @@ const CountDown = ({ initialTime, onTimeUp }: CountDownProps) => {
   );
 };
 
-export default CountDown;
+
